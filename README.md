@@ -1,2 +1,2 @@
 # AACS
-Arduino Automated Aquaponics System
+Automated Aquaponics Control System based on the Arduino platform
