@@ -1,5 +1,5 @@
-/*Balcony_Timer_Ver1.0.0
- *  05.30.2015 -  versions made by rik kretzinger -- AGponic, INC.
+/*  Automated Aquaponics Control System
+ *  Version 0.2.5
  *
  * Description:
  * This Sketch turns the growbed drain valve on and off at specific time intervals. 
