@@ -1,5 +1,5 @@
 /*  Automated Aquaponics Control System
- *  Version 0.2.5
+ *  Version 0.2.6
  *  CreatorCore Group
  *
  * Description:
@@ -23,7 +23,7 @@
 #define OnTime 1
 #define OutputPin 2
 
-String ver = "0.2.5";
+String ver = "0.2.6";
 
 /*----- TIMER -----*/
 
