@@ -3,7 +3,7 @@
  *  CreatorCore Group
  *
  * Description:
- * This Sketch turns the growbed drain valve on and off at specific time intervals. 
+ * This Sketch controlls the timing for an automated aquaponics system. 
  * Multiple independent switched events can be configured. Each
  * output can be configured with independent
  * on and off durations with a minimum of 1 second (1000)
@@ -11,7 +11,9 @@
  * 1 second(1000)-1 minute (60000)- 1 hour (3,600,000)
  *
  */
-// Timer function the requires libaries
+
+// Incude Libraries
+  // Timer function the requires libaries
 #include <EventFuse.h>
 #include <MsTimer2.h>
 
