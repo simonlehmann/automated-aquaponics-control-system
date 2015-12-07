@@ -12,11 +12,11 @@
  *
  */
 
-// Incude Libraries
-  // Timer function the requires libaries
+// Incude Libraries for Timer
 #include <EventFuse.h>
 #include <MsTimer2.h>
 
+// Include libary for Isolated Storage
 #include <EEPROM.h>
 
 // Timer #define statements
