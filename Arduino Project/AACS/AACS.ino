@@ -1,15 +1,21 @@
 /*  Automated Aquaponics Control System
  *  Version 0.2.6
- *  CreatorCore Group
  *
- * Description:
- * This Sketch controlls the timing for an automated aquaponics system. 
- * Multiple independent switched events can be configured. Each
- * output can be configured with independent
- * on and off durations with a minimum of 1 second (1000)
- * and a maximum of about 18 hours (2^16 seconds).
- * 1 second(1000)-1 minute (60000)- 1 hour (3,600,000)
- *
+ * This Sketch controlls the timing for an automated aquaponics system.
+ * Copyright (C) 2015 Simon Lehmann
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 // Incude Libraries for Timer
