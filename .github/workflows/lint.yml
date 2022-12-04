@@ -1,8 +1,6 @@
 # See docs: https://github.com/arduino/arduino-lint-action
 
-on:
-  pull_request:
-    branches: [ main ]
+on: [ pull_request ]
 
 jobs:
   lint:
