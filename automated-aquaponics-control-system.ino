@@ -1,5 +1,5 @@
 /*  Automated Aquaponics Control System
- *  Version 0.3.0
+ *  Version 0.1.0
  *
  * This Sketch controlls the timing for an automated aquaponics system.
  * Copyright (C) 2015 Simon Lehmann
@@ -31,7 +31,7 @@
 #define OnTime 1
 #define OutputPin 2
 
-String ver = "0.3.0";
+String ver = "0.1.0";
 
 /*----- TIMER -----*/
 
