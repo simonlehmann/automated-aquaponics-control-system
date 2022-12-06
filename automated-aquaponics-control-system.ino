@@ -19,53 +19,52 @@
  */
 
 // Incude Libraries for Timer
-#include <EventFuse.h>
-#include <MsTimer2.h>
+#include <EventFuse.h> // Install with .zip from https://github.com/davidknaack/EventFuse
+#include <MsTimer2.h> // Install from Arduino IDE Library Manager
 
 // Include libary for Isolated Storage
 #include <EEPROM.h>
 
 // Timer #define statements
-#define OutputCount 4
-#define OffTime 0
-#define OnTime 1
-#define OutputPin 2
+#define OUTPUT_COUNT 4
+#define OFF_TIME 0
+#define ON_TIME 1
+#define OUTPUT_PIN 2
 
-String ver = "0.1.0";
+String ver      = "0.1.0";
+String repo_url = "https://github.com/simonlehmann/automated-aquaponics-control-system";
 
 /*----- TIMER -----*/
 
-// document when added and from where here
-// The outputs array defines how long each output - A B C D will
-// be turned off, on, and what pin to use for which outputs.
+// The outputs array defines how long each output will
+// be turned off, on, and what pin to use for that output.
 // The off and on values are in units of 'ticks'. The length
-// of a tick is controlled by the setup of MsTimer2.  1 second(1000) - 1 minute (60000) - 1 hour (3,600,000)
-// changes are made to this line of code  MsTimer2::set(60000, timerTick ); below
-                             // off   on  pin
-byte outputs[OutputCount][3] = {{ 1,  1,  12},   // valve timer for grow bed ON/OFF cycle -- ON provides power to Valve
-                                { 0,  0,  0},   // Output B - turned OFF until needed
-                                { 0,  0,  0},   // Output C - turned OFF until needed
-                                { 0,  0,  0},}; // Output D - turned OFF until needed
+// of a tick is controlled by the setup of MsTimer2.
+                              // off  on pin
+byte outputs[OUTPUT_COUNT][3] = {{ 1,  1,  5},   // Output A - valve timer for grow bed ON/OFF cycle
+                                 { 0,  0,  0},   // Output B - vacant
+                                 { 0,  0,  0},   // Output C - vacant
+                                 { 0,  0,  0}};  // Output D - vacant
                                
-                               // at start-up of sketch relay is in OFF mode for 
-                               // period of time of the OFF time for Output A (valve)
-                             
-void OutputHandler(FuseID fuseID, int outputID){
+                                // at start-up of sketch relay is in OFF mode for 
+                                // period of time of the OFF time for Output A (valve)
+
+void OutputHandler(FuseID fuseID, int& outputID){
   // look up the pin associated with this output
-  byte pin = outputs[outputID][OutputPin];
+  byte pin = outputs[outputID][OUTPUT_PIN];
 
   // get and invert the current pin state and write
   // it back to the port to invert the current pin state.
   int state = 1&~digitalRead(pin);
-  digitalWrite( pin, state );
+  digitalWrite(pin, state);
 
   // Reset the fuse length with a new interval. The current state
   // of the pin is used to determine which interval should be used.
-  eventFuse[fuseID].fuseLen = outputs[outputID][state];
+  EventFuse::fuses[fuseID].fuseLen = outputs[outputID][state];
 }
 
 void timerTick(){
-  eventFuse.burn(1);
+  EventFuse::burn();
 }
 
 /*----- END TIMER -----*/
@@ -73,21 +72,21 @@ void timerTick(){
 /*----- SWITCH -----*/
 
 // Input pins for switching running mode
-int inPinRun = 4; 
-int inPinAuto = 3;
-int inPinStop = 2;
+int inPinRun  = 13; 
+int inPinAuto = 12;
+int inPinStop = 11;
 // Output pins for running mode LEDs
-int outPinRun = 13;
-int outPinAuto = 12;
-int outPinStop = 11;
+int outPinRun  = 4;
+int outPinAuto = 3;
+int outPinStop = 2;
 
-int state = HIGH;      // the current state of the output pin
+int state    = HIGH;   // the current state of the output pin
 int reading;           // the current reading from the input pin
 int previous = LOW;    // the previous reading from the input pin
 
 // the follow variables are long's because the time, measured in miliseconds,
 // will quickly become a bigger number than can be stored in an int.
-long time = 0;         // the last time the output pin was toggled
+long time     = 0;     // the last time the output pin was toggled
 long debounce = 200;   // the debounce time (miliseconds), increase if the output flickers
 
 /*----- END SWITCH -----*/
@@ -98,22 +97,24 @@ void setup() {
   while (!Serial);
   Serial.println("Automated Aquaponics Control System");
   Serial.println("Version: " + ver);
+  Serial.println("Repo URL: " + repo_url);
   Serial.println();
   Serial.println("Starting...");
-  
+
   // Set up and init all outputs to off
-  for(byte i = 0; i<OutputCount; i++){
-    //pinMode( outputs[i][OutputPin], OUTPUT);
-    digitalWrite( outputs[i][OutputPin], LOW );
-    
+  for(byte i = 0; i < OUTPUT_COUNT; i++){
+    //pinMode(outputs[i][OUTPUT_PIN], OUTPUT);
+    digitalWrite(outputs[i][OUTPUT_PIN], LOW);
+
     // Set up an event fuse for this output.
-    eventFuse.newFuse( i, outputs[i][OffTime], INF_REPEAT, OutputHandler );
+    EventFuse::newFuse(i, outputs[i][OFF_TIME], INF_REPEAT, OutputHandler);
   }
+
   // Set pin modes
   pinMode(inPinRun, INPUT);
   pinMode(inPinAuto, INPUT);
   pinMode(inPinStop, INPUT);
-  
+
   pinMode(outPinRun, OUTPUT);
   pinMode(outPinAuto, OUTPUT);
   pinMode(outPinStop, OUTPUT);
@@ -128,70 +129,60 @@ void setup() {
   digitalWrite(outPinAuto, LOW);
   digitalWrite(outPinRun, LOW);
   delay(500);
-  // End lamp test
   Serial.println("Lamp test complete.");
 
- 
-  // Set MsTimer2 for one second per tick.
-  MsTimer2::set(1000, timerTick ); 
-  //MsTimer2::start();
+  // Set MsTimer2 for one second per tick (in milliseconds,
+  MsTimer2::set(1000, timerTick);
+
   Serial.println("System Ready.");
   Serial.println();
-  //pumpAuto();
-
 
   // Read last running mode from EEPROM (if one exists)
   if (EEPROM.read(0) == 1){
     Serial.println("Resuming last run mode: Run.");
     pumpRun();
-  }
-  else if (EEPROM.read(0) == 2){
+  } else if (EEPROM.read(0) == 2){
     Serial.println("Resuming last run mode: Auto.");
     pumpAuto();
-  }
-  else if (EEPROM.read(0) == 3){
+  } else if (EEPROM.read(0) == 3){
     Serial.println("Resuming last run mode: Stop.");
     pumpStop();
-  }
-  else {
+  } else {
     // If no previous running mode found, remain stopped
-    Serial.println("Last run mode: Unknown!");
+    Serial.println("Unknown last run mode. Defaulting to run mode: Stop.");
     pumpStop();
   }
-
 }
 
 void loop(){
   // Running modes
-  //1 = Run
-  //2 = Automatic
-  //3 = Stopped
+  // 1 = Run
+  // 2 = Automatic
+  // 3 = Stopped
 
-  // Check if any running mode control buttons are pressed, if so, change 'reading' to respective running mode int
+  // Check if any running mode control buttons are pressed,
+  // if so, change 'reading' to respective running mode int
   if (digitalRead(inPinRun) == HIGH){
     reading = 1;
-  } 
-  else if (digitalRead(inPinAuto) == HIGH){
+  } else if (digitalRead(inPinAuto) == HIGH){
     reading = 2;
-  }
-  else if (digitalRead(inPinStop) == HIGH){
+  } else if (digitalRead(inPinStop) == HIGH){
     reading = 3;
-  }
-  else {
+  } else {
     // if no button pressed, set 'reading' to 0
     reading = 0;
   }
-  
+
   //Serial.println(reading);
-  
+
   // if the input just went from LOW and HIGH and we've waited long enough
   // to ignore any noise on the circuit, toggle the output pin and remember
   // the time
 
-  // Check for button state changes
+  // Check for button state changed
   if (reading == 1 && previous != 1 && millis() - time > debounce) {
     pumpRun();
-    
+
     time = millis();  
   }
   if (reading == 2 && previous != 2 && millis() - time > debounce) {
@@ -204,12 +195,6 @@ void loop(){
 
     time = millis();  
   }
-  
-  
-  //digitalWrite(outPinRun, state);
-
-  //previous = reading;
-  //delay(20);
 }
 
 // RUN mode method
@@ -259,4 +244,3 @@ void pumpStop(){
   MsTimer2::stop();
   Serial.println("Pump run mode changed to STOP!");
 }
-
