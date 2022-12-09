@@ -75,16 +75,15 @@ void timerTick(){
 /*==================*/
 
 // Input pins for switching running mode
-int inPinRun  = 12; 
-int inPinAuto = 11;
-int inPinStop = 10;
+int inPinModeAuto     = 11;
+int inPinModeDisabled = 10;
+
 // Output pins for running mode LEDs
-int outPinRun  = 4;
-int outPinAuto = 3;
-int outPinStop = 2;
+int outPinModeAuto     = 3;
+int outPinModeDisabled = 2;
 
 // Putput pins for relay control
-int outPinPumpRelay = 6; // TODO: Not used yet
+int outPinPumpRelay = 6; // TODO: Only partially implemented
 
 int state    = HIGH;   // the current state of the output pin
 int reading;           // the current reading from the input pin
@@ -109,9 +108,9 @@ void setup() {
   Serial.println();
   Serial.println("Starting...");
 
-  // Disable onboard L LED
+  // Extinguish onboard "L" LED
   pinMode(13, OUTPUT);
-  digitalWrite(outPinStop, LOW);
+  digitalWrite(13, LOW);
 
   // Set up and init all outputs to off
   for(byte i = 0; i < OUTPUT_COUNT; i++){
@@ -123,23 +122,18 @@ void setup() {
   }
 
   // Set pin modes
-  pinMode(inPinRun, INPUT);
-  pinMode(inPinAuto, INPUT);
-  pinMode(inPinStop, INPUT);
-
-  pinMode(outPinRun, OUTPUT);
-  pinMode(outPinAuto, OUTPUT);
-  pinMode(outPinStop, OUTPUT);
+  pinMode(inPinModeAuto,      INPUT);
+  pinMode(inPinModeDisabled,  INPUT);
+  pinMode(outPinModeAuto,     OUTPUT);
+  pinMode(outPinModeDisabled, OUTPUT);
 
   // Run lamp test to test all LEDs on controll panel
-  Serial.println("Lamp test...");
-  digitalWrite(outPinStop, HIGH);
-  digitalWrite(outPinAuto, HIGH);
-  digitalWrite(outPinRun, HIGH);
+  Serial.println("Lamp test starting...");
+  digitalWrite(outPinModeAuto,     HIGH);
+  digitalWrite(outPinModeDisabled, HIGH);
   delay(2000);
-  digitalWrite(outPinStop, LOW);
-  digitalWrite(outPinAuto, LOW);
-  digitalWrite(outPinRun, LOW);
+  digitalWrite(outPinModeAuto,     LOW);
+  digitalWrite(outPinModeDisabled, LOW);
   delay(500);
   Serial.println("Lamp test complete.");
 
@@ -150,19 +144,16 @@ void setup() {
   Serial.println();
 
   // Read last running mode from EEPROM (if one exists)
-  if (EEPROM.read(0) == 1){
-    Serial.println("Resuming last run mode: Run.");
-    pumpRun();
+  if (EEPROM.read(0) == 2){
+    Serial.println("Resuming last run mode: AUTO.");
+    modeAuto();
   } else if (EEPROM.read(0) == 2){
-    Serial.println("Resuming last run mode: Auto.");
-    pumpAuto();
-  } else if (EEPROM.read(0) == 3){
-    Serial.println("Resuming last run mode: Stop.");
-    pumpStop();
+    Serial.println("Resuming last run mode: DISABLED.");
+    modeDisabled();
   } else {
     // If no previous running mode found, remain stopped
-    Serial.println("Unknown last run mode. Defaulting to run mode: Stop.");
-    pumpStop();
+    Serial.println("Unknown last run mode. Defaulting to run mode: DISABLED.");
+    modeDisabled();
   }
 }
 
@@ -172,24 +163,19 @@ void setup() {
 
 void loop(){
   // Running modes
-  // 1 = Run
-  // 2 = Automatic
-  // 3 = Stopped
+  // 1 = Auto
+  // 2 = Disabled
 
   // Check if any running mode control buttons are pressed,
   // if so, change 'reading' to respective running mode int
-  if (digitalRead(inPinRun) == HIGH){
+  if (digitalRead(inPinModeAuto) == HIGH){
     reading = 1;
-  } else if (digitalRead(inPinAuto) == HIGH){
+  } else if (digitalRead(inPinModeDisabled) == HIGH){
     reading = 2;
-  } else if (digitalRead(inPinStop) == HIGH){
-    reading = 3;
   } else {
     // if no button pressed, set 'reading' to 0
     reading = 0;
   }
-
-  //Serial.println(reading);
 
   // if the input just went from LOW and HIGH and we've waited long enough
   // to ignore any noise on the circuit, toggle the output pin and remember
@@ -197,17 +183,12 @@ void loop(){
 
   // Check for button state changed
   if (reading == 1 && previous != 1 && millis() - time > debounce) {
-    pumpRun();
+    modeAuto();
 
     time = millis();  
   }
   if (reading == 2 && previous != 2 && millis() - time > debounce) {
-    pumpAuto();
-
-    time = millis();  
-  }
-  if (reading == 3 && previous != 3 && millis() - time > debounce) {
-    pumpStop();
+    modeDisabled();
 
     time = millis();  
   }
@@ -217,61 +198,11 @@ void loop(){
 /*      RUNNING MODES      */
 /*=========================*/
 
-// RUN mode method
-void pumpRun(){
-  // Update control panel LEDs to confirm running mode change
-  digitalWrite(outPinRun, HIGH);
-  digitalWrite(outPinAuto, LOW);
-  digitalWrite(outPinStop, LOW);
-
-  // Write running mode change to EEPROM so it can be recovered on next boot
-  EEPROM.update(0, 1);
-  previous = 1;
-
-  // Stop MsTimer
-  MsTimer2::stop();
-  Serial.println("Pump run mode changed to RUN!");
-}
-
-// AUTO mode method
-void pumpAuto(){
-  // Update control panel LEDs to confirm running mode change
-  digitalWrite(outPinAuto, HIGH);
-  digitalWrite(outPinRun, LOW);
-  digitalWrite(outPinStop, LOW);
-
-  // Write running mode change to EEPROM so it can be recovered on next boot
-  EEPROM.update(0, 2);
-  previous = 2;
-
-  // Start MsTimer
-  MsTimer2::start();
-  Serial.println("Pump run mode changed to AUTO!");
-}
-
-// STOP mode method
-void pumpStop(){
-  // Update control panel LEDs to confirm running mode change
-  digitalWrite(outPinStop, HIGH);
-  digitalWrite(outPinAuto, LOW);
-  digitalWrite(outPinRun, LOW);
-
-  // Write running mode change to EEPROM so it can be recovered on next boot
-  EEPROM.update(0, 3);
-  previous = 3;
-
-  // Stop MsTimer
-  MsTimer2::stop();
-  Serial.println("Pump run mode changed to STOP!");
-}
-
-/////////////////////////////////
-
 // AUTO mode method
 void modeAuto(){
   // Update control panel LEDs to confirm running mode change
-  digitalWrite(outPinAuto,     HIGH);
-  digitalWrite(outPinDisabled, LOW);
+  digitalWrite(outPinModeAuto,     HIGH);
+  digitalWrite(outPinModeDisabled, LOW);
 
   // Write running mode change to EEPROM so it can be recovered on next boot
   EEPROM.update(0, 1);
@@ -286,8 +217,8 @@ void modeAuto(){
 // DISABLED mode method
 void modeDisabled(){
   // Update control panel LEDs to confirm running mode change
-  digitalWrite(outPinAuto,     LOW);
-  digitalWrite(outPinDisabled, HIGH);
+  digitalWrite(outPinModeAuto,     LOW);
+  digitalWrite(outPinModeDisabled, HIGH);
 
   // Write running mode change to EEPROM so it can be recovered on next boot
   EEPROM.update(0, 2);
@@ -304,9 +235,9 @@ void modeDisabled(){
 /*=========================*/
 
 void pumpRun(){
-
+  digitalWrite(outPinPumpRelay, HIGH);
 }
 
 void pumpStop(){
-
+  digitalWrite(outPinPumpRelay, LOW);
 }
