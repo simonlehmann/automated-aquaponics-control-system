@@ -44,7 +44,7 @@ String repo_url = "https://github.com/simonlehmann/automated-aquaponics-control-
 // The off and on values are in units of 'ticks'. The length
 // of a tick is controlled by the setup of MsTimer2.
                               // off  on pin
-byte outputs[OUTPUT_COUNT][3] = {{ 1,  1,  6},   // Output A - valve timer for grow bed ON/OFF cycle
+byte outputs[OUTPUT_COUNT][3] = {{ 1,  1,  5},   // Output A - valve timer for grow bed ON/OFF cycle
                                  { 0,  0,  0},   // Output B - vacant
                                  { 0,  0,  0},   // Output C - vacant
                                  { 0,  0,  0}};  // Output D - vacant
@@ -75,15 +75,15 @@ void timerTick(){
 /*==================*/
 
 // Input pins for switching running mode
-int inPinModeAuto     = 11;
-int inPinModeDisabled = 10;
+int inPinModeAuto     = 12;
+int inPinModeDisabled = 11;
 
 // Output pins for running mode LEDs
 int outPinModeAuto     = 3;
 int outPinModeDisabled = 2;
 
 // Putput pins for relay control
-int outPinPumpRelay = 6; // TODO: Only partially implemented
+int outPinPumpRelay = 5; // TODO: Only partially implemented
 
 int state    = HIGH;   // the current state of the output pin
 int reading;           // the current reading from the input pin
@@ -235,9 +235,11 @@ void modeDisabled(){
 /*=========================*/
 
 void pumpRun(){
+  Serial.println("Pump starting...");
   digitalWrite(outPinPumpRelay, HIGH);
 }
 
 void pumpStop(){
+  Serial.println("Pump stopping...");
   digitalWrite(outPinPumpRelay, LOW);
 }
