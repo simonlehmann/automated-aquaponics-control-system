@@ -1,5 +1,6 @@
-/*  Automated Aquaponics Control System
- *  Version 0.1.0
+/**
+ * Automated Aquaponics Control System
+ * Version 0.1.0
  *
  * This Sketch controlls the timing for an automated aquaponics system.
  * Copyright (C) 2015 Simon Lehmann
@@ -34,7 +35,9 @@
 String ver      = "0.1.0";
 String repo_url = "https://github.com/simonlehmann/automated-aquaponics-control-system";
 
-/*----- TIMER -----*/
+/*=================*/
+/*      TIMER      */
+/*=================*/
 
 // The outputs array defines how long each output will
 // be turned off, on, and what pin to use for that output.
@@ -67,18 +70,22 @@ void timerTick(){
   EventFuse::burn();
 }
 
-/*----- END TIMER -----*/
-
-/*----- SWITCH -----*/
+/*==================*/
+/*      SWITCH      */
+/*==================*/
 
 // Input pins for switching running mode
 int inPinRun  = 13; 
 int inPinAuto = 12;
 int inPinStop = 11;
+
 // Output pins for running mode LEDs
 int outPinRun  = 4;
 int outPinAuto = 3;
 int outPinStop = 2;
+
+// Putput pins for relay control
+int outPinPumpRelay = 6; // TODO: Not used yet
 
 int state    = HIGH;   // the current state of the output pin
 int reading;           // the current reading from the input pin
@@ -89,7 +96,9 @@ int previous = LOW;    // the previous reading from the input pin
 long time     = 0;     // the last time the output pin was toggled
 long debounce = 200;   // the debounce time (miliseconds), increase if the output flickers
 
-/*----- END SWITCH -----*/
+/*==================*/
+/*      SET-UP      */
+/*==================*/
 
 void setup() {
 
@@ -100,6 +109,10 @@ void setup() {
   Serial.println("Repo URL: " + repo_url);
   Serial.println();
   Serial.println("Starting...");
+
+  // Disable onboard L LED
+  pinMode(13, OUTPUT);
+  digitalWrite(outPinStop, LOW);
 
   // Set up and init all outputs to off
   for(byte i = 0; i < OUTPUT_COUNT; i++){
@@ -154,6 +167,10 @@ void setup() {
   }
 }
 
+/*================*/
+/*      MAIN      */
+/*================*/
+
 void loop(){
   // Running modes
   // 1 = Run
@@ -196,6 +213,10 @@ void loop(){
     time = millis();  
   }
 }
+
+/*=========================*/
+/*      RUNNING MODES      */
+/*=========================*/
 
 // RUN mode method
 void pumpRun(){
@@ -243,4 +264,50 @@ void pumpStop(){
   // Stop MsTimer
   MsTimer2::stop();
   Serial.println("Pump run mode changed to STOP!");
+}
+
+/////////////////////////////////
+
+// AUTO mode method
+void modeAuto(){
+  // Update control panel LEDs to confirm running mode change
+  digitalWrite(outPinAuto,     HIGH);
+  digitalWrite(outPinDisabled, LOW);
+
+  // Write running mode change to EEPROM so it can be recovered on next boot
+  EEPROM.update(0, 1);
+  previous = 1;
+
+  // Start MsTimer
+  MsTimer2::start();
+
+  Serial.println("Running mode changed to AUTO.");
+}
+
+// DISABLED mode method
+void modeDisabled(){
+  // Update control panel LEDs to confirm running mode change
+  digitalWrite(outPinAuto,     LOW);
+  digitalWrite(outPinDisabled, HIGH);
+
+  // Write running mode change to EEPROM so it can be recovered on next boot
+  EEPROM.update(0, 2);
+  previous = 2;
+
+  // Stop MsTimer
+  MsTimer2::stop();
+
+  Serial.println("Running mode changed to DISABLED.");
+}
+
+/*=========================*/
+/*      PUMP CONTROLS      */
+/*=========================*/
+
+void pumpRun(){
+
+}
+
+void pumpStop(){
+
 }
