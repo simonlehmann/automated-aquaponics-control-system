@@ -1,5 +1,6 @@
-/*  Automated Aquaponics Control System
- *  Version 0.1.0
+/**
+ * Automated Aquaponics Control System
+ * Version 0.1.0
  *
  * This Sketch controlls the timing for an automated aquaponics system.
  * Copyright (C) 2015 Simon Lehmann
@@ -29,19 +30,21 @@
 #define OUTPUT_COUNT 4
 #define OFF_TIME 0
 #define ON_TIME 1
-#define OUTPUT_PIN 2
+#define OUTPUT_PIN 5 // TODO: What is this pin actually doing?
 
 String ver      = "0.1.0";
 String repo_url = "https://github.com/simonlehmann/automated-aquaponics-control-system";
 
-/*----- TIMER -----*/
+/*=================*/
+/*      TIMER      */
+/*=================*/
 
 // The outputs array defines how long each output will
 // be turned off, on, and what pin to use for that output.
 // The off and on values are in units of 'ticks'. The length
 // of a tick is controlled by the setup of MsTimer2.
                               // off  on pin
-byte outputs[OUTPUT_COUNT][3] = {{ 1,  1,  6},   // Output A - valve timer for grow bed ON/OFF cycle
+byte outputs[OUTPUT_COUNT][3] = {{ 4,  1,  5},   // Output A - valve timer for grow bed ON/OFF cycle
                                  { 0,  0,  0},   // Output B - vacant
                                  { 0,  0,  0},   // Output C - vacant
                                  { 0,  0,  0}};  // Output D - vacant
@@ -64,24 +67,27 @@ void OutputHandler(FuseID fuseID, int& outputID){
 }
 
 void timerTick(){
+  Serial.println("Tick.");
   EventFuse::burn();
 }
 
-/*----- END TIMER -----*/
-
-/*----- SWITCH -----*/
+/*==================*/
+/*      SWITCH      */
+/*==================*/
 
 // Input pins for switching running mode
-int inPinRun  = 12; 
-int inPinAuto = 11;
-int inPinStop = 10;
-// Output pins for running mode LEDs
-int outPinRun  = 4;
-int outPinAuto = 3;
-int outPinStop = 2;
+int inPinModeAuto     = 12;
+int inPinModeDisabled = 11;
 
-// Putput pins for relay control
-int outPinPumpRelay = 6; // TODO: Not used yet
+// Output pins for running mode LEDs
+int outPinModeAuto     = 3;
+int outPinModeDisabled = 2;
+
+// Output pins for relay control
+int outPinPumpRelay = 5; // TODO: Only partially implemented
+
+// Initial pump relay state
+boolean statePumpRelay = LOW; // TODO: Not implemented // TODO: Can we just read from the pin rather then maintaining another value?
 
 int state    = HIGH;   // the current state of the output pin
 int reading;           // the current reading from the input pin
@@ -92,7 +98,9 @@ int previous = LOW;    // the previous reading from the input pin
 long time     = 0;     // the last time the output pin was toggled
 long debounce = 200;   // the debounce time (miliseconds), increase if the output flickers
 
-/*----- END SWITCH -----*/
+/*==================*/
+/*      SET-UP      */
+/*==================*/
 
 void setup() {
 
@@ -104,9 +112,9 @@ void setup() {
   Serial.println();
   Serial.println("Starting...");
 
-  // Disable onboard L LED
+  // Extinguish onboard "L" LED
   pinMode(13, OUTPUT);
-  digitalWrite(outPinStop, LOW);
+  digitalWrite(13, LOW);
 
   // Set up and init all outputs to off
   for(byte i = 0; i < OUTPUT_COUNT; i++){
@@ -118,23 +126,21 @@ void setup() {
   }
 
   // Set pin modes
-  pinMode(inPinRun, INPUT);
-  pinMode(inPinAuto, INPUT);
-  pinMode(inPinStop, INPUT);
-
-  pinMode(outPinRun, OUTPUT);
-  pinMode(outPinAuto, OUTPUT);
-  pinMode(outPinStop, OUTPUT);
+  pinMode(inPinModeAuto,      INPUT);
+  pinMode(inPinModeDisabled,  INPUT);
+  pinMode(outPinModeAuto,     OUTPUT);
+  pinMode(outPinModeDisabled, OUTPUT);
+  pinMode(outPinPumpRelay,    OUTPUT);
 
   // Run lamp test to test all LEDs on controll panel
-  Serial.println("Lamp test...");
-  digitalWrite(outPinStop, HIGH);
-  digitalWrite(outPinAuto, HIGH);
-  digitalWrite(outPinRun, HIGH);
+  Serial.println("Lamp test starting...");
+  digitalWrite(outPinModeAuto,     HIGH);
+  digitalWrite(outPinModeDisabled, HIGH);
+  digitalWrite(outPinPumpRelay,    HIGH);
   delay(2000);
-  digitalWrite(outPinStop, LOW);
-  digitalWrite(outPinAuto, LOW);
-  digitalWrite(outPinRun, LOW);
+  digitalWrite(outPinModeAuto,     LOW);
+  digitalWrite(outPinModeDisabled, LOW);
+  digitalWrite(outPinPumpRelay,    LOW);
   delay(500);
   Serial.println("Lamp test complete.");
 
@@ -146,41 +152,37 @@ void setup() {
 
   // Read last running mode from EEPROM (if one exists)
   if (EEPROM.read(0) == 1){
-    Serial.println("Resuming last run mode: Run.");
-    pumpRun();
+    Serial.println("Resuming last run mode: AUTO.");
+    modeAuto();
   } else if (EEPROM.read(0) == 2){
-    Serial.println("Resuming last run mode: Auto.");
-    pumpAuto();
-  } else if (EEPROM.read(0) == 3){
-    Serial.println("Resuming last run mode: Stop.");
-    pumpStop();
+    Serial.println("Resuming last run mode: DISABLED.");
+    modeDisabled();
   } else {
     // If no previous running mode found, remain stopped
-    Serial.println("Unknown last run mode. Defaulting to run mode: Stop.");
-    pumpStop();
+    Serial.println("Unknown last run mode. Defaulting to run mode: DISABLED.");
+    modeDisabled();
   }
 }
 
+/*================*/
+/*      MAIN      */
+/*================*/
+
 void loop(){
   // Running modes
-  // 1 = Run
-  // 2 = Automatic
-  // 3 = Stopped
+  // 1 = Auto
+  // 2 = Disabled
 
   // Check if any running mode control buttons are pressed,
   // if so, change 'reading' to respective running mode int
-  if (digitalRead(inPinRun) == HIGH){
+  if (digitalRead(inPinModeAuto) == HIGH){
     reading = 1;
-  } else if (digitalRead(inPinAuto) == HIGH){
+  } else if (digitalRead(inPinModeDisabled) == HIGH){
     reading = 2;
-  } else if (digitalRead(inPinStop) == HIGH){
-    reading = 3;
   } else {
     // if no button pressed, set 'reading' to 0
     reading = 0;
   }
-
-  //Serial.println(reading);
 
   // if the input just went from LOW and HIGH and we've waited long enough
   // to ignore any noise on the circuit, toggle the output pin and remember
@@ -188,66 +190,71 @@ void loop(){
 
   // Check for button state changed
   if (reading == 1 && previous != 1 && millis() - time > debounce) {
-    pumpRun();
+    modeAuto();
 
     time = millis();  
   }
   if (reading == 2 && previous != 2 && millis() - time > debounce) {
-    pumpAuto();
-
-    time = millis();  
-  }
-  if (reading == 3 && previous != 3 && millis() - time > debounce) {
-    pumpStop();
+    modeDisabled();
 
     time = millis();  
   }
 }
 
-// RUN mode method
-void pumpRun(){
+/*=========================*/
+/*      RUNNING MODES      */
+/*=========================*/
+
+// AUTO mode method
+void modeAuto(){
   // Update control panel LEDs to confirm running mode change
-  digitalWrite(outPinRun, HIGH);
-  digitalWrite(outPinAuto, LOW);
-  digitalWrite(outPinStop, LOW);
+  digitalWrite(outPinModeAuto,     HIGH);
+  digitalWrite(outPinModeDisabled, LOW);
 
   // Write running mode change to EEPROM so it can be recovered on next boot
   EEPROM.update(0, 1);
   previous = 1;
 
-  // Stop MsTimer
-  MsTimer2::stop();
-  Serial.println("Pump run mode changed to RUN!");
+  // Start MsTimer
+  MsTimer2::start();
+
+  Serial.println("Running mode changed to AUTO.");
 }
 
-// AUTO mode method
-void pumpAuto(){
+// DISABLED mode method
+void modeDisabled(){
   // Update control panel LEDs to confirm running mode change
-  digitalWrite(outPinAuto, HIGH);
-  digitalWrite(outPinRun, LOW);
-  digitalWrite(outPinStop, LOW);
+  digitalWrite(outPinModeAuto,     LOW);
+  digitalWrite(outPinModeDisabled, HIGH);
 
   // Write running mode change to EEPROM so it can be recovered on next boot
   EEPROM.update(0, 2);
   previous = 2;
 
-  // Start MsTimer
-  MsTimer2::start();
-  Serial.println("Pump run mode changed to AUTO!");
-}
-
-// STOP mode method
-void pumpStop(){
-  // Update control panel LEDs to confirm running mode change
-  digitalWrite(outPinStop, HIGH);
-  digitalWrite(outPinAuto, LOW);
-  digitalWrite(outPinRun, LOW);
-
-  // Write running mode change to EEPROM so it can be recovered on next boot
-  EEPROM.update(0, 3);
-  previous = 3;
-
   // Stop MsTimer
   MsTimer2::stop();
-  Serial.println("Pump run mode changed to STOP!");
+
+  Serial.println("Running mode changed to DISABLED.");
+}
+
+/*===============================*/
+/*      PUMP RELAY CONTROLS      */
+/*===============================*/
+
+void pumpCycle(){
+  pumpRun();
+  delay(2000); // 2 seconds
+  pumpStop();
+}
+
+void pumpRun(){
+  Serial.println("Pump starting...");
+  statePumpRelay = HIGH; // TODO: Can we just read from the pin rather then maintaining another value?
+  digitalWrite(outPinPumpRelay, statePumpRelay);
+}
+
+void pumpStop(){
+  Serial.println("Pump stopping...");
+  statePumpRelay = LOW; // TODO: Can we just read from the pin rather then maintaining another value?
+  digitalWrite(outPinPumpRelay, statePumpRelay);
 }
