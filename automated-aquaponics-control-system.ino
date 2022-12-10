@@ -30,7 +30,7 @@
 #define OUTPUT_COUNT 4
 #define OFF_TIME 0
 #define ON_TIME 1
-#define OUTPUT_PIN 2
+#define OUTPUT_PIN 5 // TODO: What is this pin actually doing?
 
 String ver      = "0.1.0";
 String repo_url = "https://github.com/simonlehmann/automated-aquaponics-control-system";
@@ -44,7 +44,7 @@ String repo_url = "https://github.com/simonlehmann/automated-aquaponics-control-
 // The off and on values are in units of 'ticks'. The length
 // of a tick is controlled by the setup of MsTimer2.
                               // off  on pin
-byte outputs[OUTPUT_COUNT][3] = {{ 1,  1,  5},   // Output A - valve timer for grow bed ON/OFF cycle
+byte outputs[OUTPUT_COUNT][3] = {{ 4,  1,  5},   // Output A - valve timer for grow bed ON/OFF cycle
                                  { 0,  0,  0},   // Output B - vacant
                                  { 0,  0,  0},   // Output C - vacant
                                  { 0,  0,  0}};  // Output D - vacant
@@ -67,6 +67,7 @@ void OutputHandler(FuseID fuseID, int& outputID){
 }
 
 void timerTick(){
+  Serial.println("Tick.");
   EventFuse::burn();
 }
 
@@ -82,8 +83,11 @@ int inPinModeDisabled = 11;
 int outPinModeAuto     = 3;
 int outPinModeDisabled = 2;
 
-// Putput pins for relay control
+// Output pins for relay control
 int outPinPumpRelay = 5; // TODO: Only partially implemented
+
+// Initial pump relay state
+boolean statePumpRelay = LOW; // TODO: Not implemented // TODO: Can we just read from the pin rather then maintaining another value?
 
 int state    = HIGH;   // the current state of the output pin
 int reading;           // the current reading from the input pin
@@ -126,14 +130,17 @@ void setup() {
   pinMode(inPinModeDisabled,  INPUT);
   pinMode(outPinModeAuto,     OUTPUT);
   pinMode(outPinModeDisabled, OUTPUT);
+  pinMode(outPinPumpRelay,    OUTPUT);
 
   // Run lamp test to test all LEDs on controll panel
   Serial.println("Lamp test starting...");
   digitalWrite(outPinModeAuto,     HIGH);
   digitalWrite(outPinModeDisabled, HIGH);
+  digitalWrite(outPinPumpRelay,    HIGH);
   delay(2000);
   digitalWrite(outPinModeAuto,     LOW);
   digitalWrite(outPinModeDisabled, LOW);
+  digitalWrite(outPinPumpRelay,    LOW);
   delay(500);
   Serial.println("Lamp test complete.");
 
@@ -144,7 +151,7 @@ void setup() {
   Serial.println();
 
   // Read last running mode from EEPROM (if one exists)
-  if (EEPROM.read(0) == 2){
+  if (EEPROM.read(0) == 1){
     Serial.println("Resuming last run mode: AUTO.");
     modeAuto();
   } else if (EEPROM.read(0) == 2){
@@ -230,16 +237,24 @@ void modeDisabled(){
   Serial.println("Running mode changed to DISABLED.");
 }
 
-/*=========================*/
-/*      PUMP CONTROLS      */
-/*=========================*/
+/*===============================*/
+/*      PUMP RELAY CONTROLS      */
+/*===============================*/
+
+void pumpCycle(){
+  pumpRun();
+  delay(2000); // 2 seconds
+  pumpStop();
+}
 
 void pumpRun(){
   Serial.println("Pump starting...");
-  digitalWrite(outPinPumpRelay, HIGH);
+  statePumpRelay = HIGH; // TODO: Can we just read from the pin rather then maintaining another value?
+  digitalWrite(outPinPumpRelay, statePumpRelay);
 }
 
 void pumpStop(){
   Serial.println("Pump stopping...");
-  digitalWrite(outPinPumpRelay, LOW);
+  statePumpRelay = LOW; // TODO: Can we just read from the pin rather then maintaining another value?
+  digitalWrite(outPinPumpRelay, statePumpRelay);
 }
